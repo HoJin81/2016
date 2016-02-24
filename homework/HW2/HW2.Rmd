@@ -26,34 +26,87 @@ you realize that the chance of red or black are both slightly less than 1/2. The
 Let's make a quick sampling model for this simple version of roulette. You are going to bet a dollar each time you play and always bet on black. Make a box model for this process using the `sample` function. Write a function `get_outcome` that takes as an argument the number of times you play $N$ and returns your earnings $S_N$.
 
 ```{r}
-##Your code here
+get_outcome <- function(n){
+  box <- rep( c("black", "red", "green"), times = c(18,18,2))
+  playgame <- replicate(n, sample(box, 1))
+  return( sum(playgame=="black")-sum(playgame=="red")-sum(playgame=="green"))
+}
+get_outcome(10)
 ```
 
 ## Problem 1B
 
 Use Monte Carlo simulation to study the distribution of total earnings $S_N$ for $N=10,25,100,1000$. That is, study the distribution of earnings for different number of plays. What are the distributions of these two random variables? How do the expected values and standard errors change with $N$? Then do the same thing for the average winnings $S_N/N$. What result that you learned in class predicts this?
 
+## The distribution of total earnings
 ```{r}
-##Your code here
+# What does "these two random variables" mean??
+# Is the right equation for standard error?
+Sdist <- function(n,B=1000){
+  S <- replicate(B, get_outcome(n))
+  mean <- mean(S)
+  se <- sqrt( sum((S-mean(S))^2) /B )
+  return(c(paste("The expected value of total earning is",mean),
+           paste("Standard error of total earnings is",se),hist(S)))
+}
+
+k <- c(1,10,25,100,1000)
+sapply(k,Sdist)
+```
+
+## The distribution of average earnings
+```{r}
+Sdist2 <- function(n, B=1000){
+  A <- replicate(B, get_outcome(n)/n)
+  mean <- mean(A)
+  se <- sqrt( sum((A-mean(A))^2) /B )
+  return(c(paste("Expected value of average earnings is",mean),
+           paste("Standard error of average earnings is",se),
+           hist(A)))
+}
+
+sapply(k,Sdist2)
 ```
 
 Your answer here.
+### [Answer] For total earning, expected values and standard errors get bigger as N gets bigger since total earning is a summed value. On the other hand, for average earning, the sample averages get closer to the average of expected earning which we want to estimate and standard errors get smaller as N gets bigger, and this is consistent with the Law of Large Numbers.
 
 
 ## Problem 1C
 
-What is the expected value of our sampling model? What is the standard deviation of our sampling model?
+What is the expected value of our sampling model? What is the standard deviation of our sampling model? (For question 1c and other questions, the sampling model relates to urn/box/jar from which you take draws. For example, we used the jar full of blue and read bead as a sampling model for polls. Once you have a sampling model, you can simulate however many draws as you want.)
 
 Your answer here.
+
+### [Answer] 
+The expected earning per game (average): 
+P(black) x (Value of X for black) + P(Not black) x (Value of X for Not black) = 9/19 x 1 + 10/19 x (-1) = -0.053
+
+The expected earning for 10 games: -0.053*10 = -0.53 dollar
+The expected earning for 25 games: -0.053*25 = -1.32 dollar
+The expected earning for 100 games: -0.053*100 = -5.26 dollar
+The expected earning for 1000 games: -0.053*1000 = -52.63 dollar
+
+The standard deviation for n games: 2*(n*p*q)^0.5 = (n*(9/19)*(10/19))^0.5
+The standard deviation for 10 games: 2*(10*(9/19)*(10/19))^0.5 = 3.157894737
+The standard deviation for 25 games: 2*(25*(9/19)*(10/19))^0.5 = 4.99306999
+The standard deviation for 100 games: 2*(100*(9/19)*(10/19))^0.5 = 9.986139979
+The standard deviation for 1000 games: 2*(1000*(9/19)*(10/19))^0.5 = 31.57894737
+
 
 ## Problem 1D
 
 Use CLT to approximate the probability that the casino loses money when you play 25 times. Then use a Monte Carlo simulation to confirm.
 
 ```{r}
-##Your code here
-```
+# Expected earning for 25 games: -25 + 2*25*(9/19)= -1.32 dollar
+pnorm(0, mean=-1.32, sd=4.99306999, lower.tail=FALSE)
 
+S <- replicate(1000, get_outcome(25))
+prop.table(table(S > 0))
+A <- replicate(1000, get_outcome(25)/25)
+prop.table(table(A > 0))
+```
 
 
 ## Problem 1E
@@ -61,10 +114,22 @@ Use CLT to approximate the probability that the casino loses money when you play
 In general, what is the probability that the casino loses money as a function of $N$? Make a plot for values ranging from 25 to 1,000. Why does the casino give you free drinks if you keep playing?
 
 ```{r}
-##Your code here
+# Expected earning for n games: n*{(1)*(9/19)+(-1)*(10/19)} = -n/19
+n <- (25:1000)
+casinolose <- function(n){
+  return(pnorm(0, mean=(-n/19), sd=2*(n*(9/19)*(10/19))^0.5, lower.tail=F))
+}
+
+library(ggplot2)
+qplot(n, casinolose(n), color = "cyl", geom = "point") + 
+  labs(title ="The probability that the casino loses money", x = "The number of times you play", y = "Probability") +
+  theme(legend.position="none")
 ```
 
 Your answer here. 
+
+### [Answer] As we can see from the plot, the probability that the casino loses money gets smaller, the more we play the game. When we play the game 25 times, the probability that we would win is only about 0.4 (not even 0.5), and the probability is getting lower and it is close to zero if we play the game more than 1000 times. This is the reason why the casino give us free drinks if we keep playing because we might have been losing money.
+
 
 # Problem 2 
 
@@ -72,10 +137,19 @@ You run a bank that has a history of identifying potential homeowners that can b
 
 ## Problem 2A
 
-Your bank gives out 1,000 loans this year. Create a sampling model and use the function `sample` to simulate the number of foreclosure in a year with the information that 2% of customers default. Also suppose your bank loses $120,000 on each foreclosure. Run the simulation for one year and report your loss.
+Your bank gives out 1,000 loans this year. Create a sampling model and use the function `sample` to simulate the number of foreclosure in a year with the information that 2% of customers default. Also suppose your bank loses $120,000 on each foreclosure. Run the simulatqion for one year and report your loss.
 
 ```{r}
-##your code here
+# n: the number of loans this year = 1000
+bankloss <- function(n){
+  foreclosure <- sum(sample(c(1,0), n, replace=T, prob=c(0.02, 0.98)))
+  loss <- foreclosure*(-120000)
+  return(c(
+    paste("The number of foreclosure out of",n,"loans is",foreclosure,"for one year."), 
+    paste("The yearly loss due to foreclosure is",loss,"for one year.")
+    )
+)}
+bankloss(1000)
 ```
 
 ## Problem 2B
@@ -83,7 +157,10 @@ Your bank gives out 1,000 loans this year. Create a sampling model and use the f
 Note that the loss you will incur is a random variable. Use Monte Carlo simulation to estimate the distribution of this random variable. Use summaries and visualization to describe your potential losses to your board of trustees.
 
 ```{r}
-##your code here
+# Can I show just summary and plot?
+B <- replicate(100, sum(sample(c(1,0), 1000, replace=T, prob=c(0.02, 0.98)))*(-120))
+summary(B)
+boxplot(B, col="gold", main="Potential losses", ylab="Losses (thousand dollars/year)", ylim = c(-4000, 0))
 ```
 
 ## Problem 2C
@@ -91,8 +168,20 @@ Note that the loss you will incur is a random variable. Use Monte Carlo simulati
 The 1,000 loans you gave out were for $180,000. The way your bank can give out loans and not lose money is by charging an interest rate. If you charge an interest rate of, say, 2% you would earn $3,600 for each loan that doesn't foreclose. At what percentage should you set the interest rate so that your expected profit totals $100,000. Hint: Create a sampling model with expected value 100 so that when multiplied by the 1,000 loans you get an expectation of $100,000. Corroborate your answer with a Monte Carlo simulation.
 
 Your solution here. 
+
 ```{r}
-###your code here
+# Expected profit per loan = $100 = (1-0.02)*180000*interest_rate - 0.02*120000
+# interest_rate = (100+0.02*120000)/((1-0.02)*180000) = 0.01417
+# The interest rate should be set at 1.417% to expect profit of $100,000.
+
+# Below Monte Carlo simulation shows that the mean profit per loan is getting closer to $100 as the number of simulation increases.
+
+profit <- function(m){
+  I <- mean(replicate(m, (sample(c(1,0), 1000, replace=T, prob=c(0.02, 0.98)))))
+  return((1-I)*180000*0.01417 - I*120000)
+}
+m <- c(10,100,1000,10000)
+sapply(m,profit)
 ```
 
 
@@ -101,7 +190,15 @@ Your solution here.
 In problem 2C, you were able to set a very low interest rate. Your customers will be very happy and you are expected to earn $100,000 in profits. However, that is just an expectation. Our profit is a random variable. If instead of a profit your bank loses money, your bank defaults. Under the conditions of Problem 2C, what is the probability that your profit is less than 0?
 
 ```{r}
-##your code here
+# Set the interest rate as 1.417%
+# Expected value = (1-p)*180000*0.01417 - p*(120000) should be less than '0'
+
+profit2 <- function(m){
+  I <- replicate(m, mean(sample(c(1,0), 1000, replace=T, prob=c(0.02, 0.98))))
+  return((1-I)*180000*0.01417 - I*120000)
+}
+P <- replicate(100, profit2(1000))
+prop.table(table(P < 0))
 ```
 
 ## Problem 2E
@@ -112,8 +209,26 @@ Hint: Use the following short cut. If $p$ fraction of a box are $a$s and $(1-p)$
 
 Your solution here.
 
+### [Answer] 
+Profit = x*(-120000) + (1000-x)*180000*interest > 0
+x < 3000*interest/(2+3*interest)
+Pr(z > 3.09) < 0.001, z ~ N(0,1)
+Pr((x-mu)/sigma)
+(x-mu)/sigma = z = 3.09
+
+(((3000*interest)/(2+3*interest))-(1000*0.02))/(1000*0.02*0.98)^0.5) = 3.09
+interest = 0.023235928 (2.3235928%)
+
+Expected profit = 20*(-120000) + (1000-20)*180000*0.023235928 = $1698817.7
 ```{r}
-###your code here
+
+profit3 <- function(m){
+  I <- replicate(m, sum(sample(c(1,0), 1000, replace=T, prob=c(0.02, 0.98))))
+  return((1000-I)*180000*0.023235928 - I*120000)
+}
+mean(profit3(10000))
+C <- replicate(100, profit3(1000))
+prop.table(table(C < 0))
 ```
 
 ## Problem 2F
@@ -121,13 +236,29 @@ Your solution here.
 Note that the Monte Carlo simulation gave a slightly higher probability than 0.001. What is a possible reason for this? 
 Hint: See if the disparity is smaller for larger values of $p$. Also check for probabilities larger than 0.001. Recall we made an assumption when we calculated the interest rate.
 
+Profit = x*(-120000) + (1000-x)*180000*interest > 0
+x < 3000*interest/(2+3*interest)
+Pr(z > 3.09) < 0.001, z ~ N(0,1)
+Pr((x-mu)/sigma)
+(x-mu)/sigma = z = 3.09
+
+((3000*interest/(2+3*interest))-(1000*0.2))/(1000*0.2*0.8)^0.5 = 3.09
+interest = 0.209472 (20.9472%)
 
 ```{r}
-##your code here
+profit4 <- function(m){
+  I <- replicate(m, sum(sample(c(1,0), 1000, replace=T, prob=c(0.2, 0.8))))
+  return((1000-I)*180000*0.209472 - I*120000)
+}
+mean(profit4(10000))
+C <- replicate(100, profit4(1000))
+prop.table(table(C < 0))
 ```
 
-
 Your answer here.
+
+### [Answer] I used normal approximation of binomial distribution when I calculated the interest rate. Since N is 1000 and it is not large enough for the CLT to work perfectly with this probability of default, the Monte Carlo simulation gave a slightly higher probability than 0.001. For small difference, we need large number of N to detect the difference. As p gets closer to 0.5,
+
 
 ## Problem 3
 
@@ -138,7 +269,10 @@ We were able to set an interest rate of about 2% that guaranteed a very low prob
 The pool of borrowers they found had a much higher default rate, estimated to be $p=0.05$. What interest rate would give these companies the same expected profit as your bank (Answer to 2E)? 
 
 ```{r}
-##your code here
+# Expected profit of the previous company is $1698817.7
+# Expected total profit = $1698817.7 = (1000-50)*180000*interest_rate - 50*120000
+# interest_rate = (1698817.7+50*120000)/((1000-50)*180000) = 0.045022326
+# These companies should have the interest rate 4.5022326 % to get the same expected profit as my bank.
 ```
 
 ## Problem 3B 
@@ -146,7 +280,23 @@ The pool of borrowers they found had a much higher default rate, estimated to be
 At the interest rate calculated in 3A what is the probability of negative profits? Use both the normal approximation and then confirm with a Monte Carlo simulation.
 
 ```{r}
-##your code here
+# The normal approximatioin gives 0.01380256
+# Monte Carlo simulation gives around 0.028
+
+pnorm(0, mean=1698817.74, sd=882896.1112, lower.tail=T)
+
+other_interest <- (1698817.7+50*120000)/((1000-50)*180000)
+mean <- 1698817.7
+diff <- 120000+180000*other_interest
+pnorm((0-mean)/(diff*sqrt(0.05*0.95*1000)), lower.tail=T)
+
+expec_other <- function(n){
+  foreclosure <- sum(sample(c(1,0), n, replace=T, prob=c(0.05, 0.95)))
+  return((1000-foreclosure)*180000*0.045022326 - foreclosure*120000)
+}
+
+K <- replicate(10000, expec_other(1000))
+prop.table(table(K < 0))
 ```
 
 ## Problem 3C 
@@ -154,8 +304,25 @@ At the interest rate calculated in 3A what is the probability of negative profit
 Note that the probability is much higher now. This is because the standard deviation grew. The companies giving out the loans did not want to raise interest rates much more since it would drive away clients. Instead they used a statistical approach. They increased $N$. How large does $N$ need to be for this probability to be 0.001? Use the central limit approximation and then confirm with a Monte Carlo simulation.
 
 Your answer here.
+
 ```{r}
-###your code here
+# Pr(z > 3.09) < 0.001, z ~ N(0,1)
+# Pr((x-mu)/sigma)
+# (x-mu)/sigma = z = 3.09
+
+other_interest <- (1698817.7+50*120000)/((1000-50)*180000)
+expected <- 1698817.7/1000
+diff <- 120000+180000*other_interest
+n <- ((3.09*diff*sqrt(0.05*0.95))/expected)^2
+n
+
+expec_other2 <- function(n){
+  foreclosure <- sum(sample(c(1,0), n, replace=T, prob=c(0.05, 0.95)))
+  return((n-foreclosure)*180000*0.045022326 - foreclosure*120000)
+}
+
+K2 <- replicate(10000, expec_other2(2579))
+prop.table(table(K2 < 0))
 ```
 
 So by doubling the number of loans we were able to reduce our risk! Now, for this to work, all the assumptions in our model need to be approximately correct, including the assumption that the probability of default was **independent**. This turned out to be false and the main reason for the under estimation of risk.
@@ -199,15 +366,50 @@ Note that the outcomes are no longer independent as demonstrated by this result 
 sum( outcomes2[1,] < 0 & outcomes2[2,]<0)/sum(outcomes2[1,]<0)
 ```
 
-
 Generate a simulation with correlated outcomes such as those above. This time use the interest rate calculated in 3A. What is the expected earnings under this model compared to the previous? What is the probability of losing $1 million compared to the previous? What is the probability of losing $10 million compared to the previous?
 
-
-
 ```{r}
-###your code here
+interest_rate <- 0.045022326
+expec_other3 <- function(n){
+  add <- sample( c(-0.04,0.04), 1)
+  foreclosure <- sum(sample(c(1,0), n, replace=T, prob=c(0.05+add, 1-(0.05+add))))
+  return((1000-foreclosure)*180000*0.045022326 - foreclosure*120000)
+}
+expec_other3(1000)
+
+# Previous model
+expec_other <- function(n){
+  foreclosure <- sum(sample(c(1,0), n, replace=T, prob=c(0.05, 0.95)))
+  return((1000-foreclosure)*180000*0.045022326 - foreclosure*120000)
+}
+expec_other(1000)
 ```
 
+```{r}
+expec_other3 <- function(n,B=10000){
+  
+  foreclosure <- replicate(B, {
+    add <- sample( c(-0.04,0.04), 1)
+    sum(sample(c(1,0), n, replace=T, prob=c(0.05+add, 1-(0.05+add))))
+    })
+  total <- (1000-foreclosure)*180000*0.045022326 - foreclosure*120000
+  return(mean(total < -1000000))
+}
+expec_other3(1000)
+```
+
+```{r}
+expec_other4 <- function(n,B=10000){
+  
+  foreclosure <- replicate(B, {
+    add <- sample( c(-0.04,0.04), 1)
+    sum(sample(c(1,0), n, replace=T, prob=c(0.05+add, 1-(0.05+add))))
+    })
+  total <- (1000-foreclosure)*180000*0.045022326 - foreclosure*120000
+  return(mean(total < -10000000))
+}
+expec_other4(1000)
+```
 
 ## Problem 4
 
